@@ -1,0 +1,331 @@
+# Load what we will need for data wrangling, visualization, and modeling from csv
+import numpy as np
+import pandas as pd
+
+pd.options.display.max_rows = None
+pd.options.display.max_columns = None
+
+# For visualization
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# TODO: Change to Github standards
+diabetes_df = pd.read_csv('/Users/cameronhirsh/Desktop/HealthSciences_Dataset.csv')
+
+# Find Amount of Missing Values
+#for variable in ['race', 'weight', 'payer_code', 'medical_specialty', 'diag_1', 'diag_2', 'diag_3'] :
+#  print("Frequency of " + variable)
+#  print(diabetes_df[variable].value_counts())
+
+#print(diabetes_df['race'].value_counts())
+
+# Dealing with Categorical Columns: (Age)
+# Choosing a midpoint for each bin (Method for imputation)
+print("Age Breakdown")
+#print(diabetes_df['age'].value_counts())
+
+age_num = []
+for value in diabetes_df['age']:
+  if value == '[90-100)':
+    age_num.append((99+90)/2)
+  if value == '[80-90)':
+    age_num.append((89+80)/2)
+  if value == '[70-80)':
+    age_num.append((79+70)/2)
+  if value == '[60-70)':
+    age_num.append((69+60)/2)
+  if value == '[50-60)':
+    age_num.append((59+50)/2)
+  if value == '[40-50)':
+    age_num.append((49+40)/2)
+  if value == '[30-40)':
+    age_num.append((30+39)/2)
+  if value == '[20-30)':
+    age_num.append((20+29)/2)
+  if value == '[10-20)':
+    age_num.append((10+19)/2)
+  if value == '[0-10)':
+    age_num.append((9)/2)
+
+#print(len(age_num))
+
+diabetes_df['age_num'] = age_num
+
+# Check Success
+#print("Age Num Values")
+#print(diabetes_df['age_num'])
+# Successful
+
+
+# Remove missingness from Payer_code
+print("Missingness of Payer_code")
+print(diabetes_df['payer_code'].value_counts())
+# Since the number of missing values is large in insurance, let's get rid of the whole column. Insurance shouldn't be too great of a factor in readmittance.
+diabetes_df = diabetes_df.drop('payer_code', axis=1)
+
+
+print(diabetes_df.shape)
+# 46902 rows
+
+# Percent Missingness of several columns with "?" as the missing signifier
+
+print("Missingness of Race")
+print("Frequency: " + str(diabetes_df['race'].value_counts()['?']/46902))
+
+print("Missingness of Weight")
+print("Frequency: " + str(diabetes_df['weight'].value_counts()['?']/46902))
+
+print("Missingness of Specialty")
+print("Frequency: " + str(diabetes_df['medical_specialty'].value_counts()['?']/46902))
+
+print("Missingness of Diag1")
+print("Frequency: " + str(diabetes_df['diag_1'].value_counts()['?']/46902))
+
+print("Missingness of Diag2")
+print("Frequency: " + str(diabetes_df['diag_2'].value_counts()['?']/46902))
+
+print("Missingness of Diag3")
+print("Frequency: " + str(diabetes_df['diag_3'].value_counts()['?']/46902))
+
+# Removing Unnecessary Columns
+# A large majority of values are missing for these columns. Lets drop them.
+diabetes_df = diabetes_df.drop(['weight'], axis = 1)
+diabetes_df = diabetes_df.drop(['medical_specialty'], axis = 1)
+diabetes_df = diabetes_df.drop(['max_glu_serum'], axis = 1)
+diabetes_df = diabetes_df.drop(['A1Cresult'], axis = 1)
+
+# Diag1, 2, and 3 are all coded through ICD9 which is an unsupported format on public domain.
+diabetes_df = diabetes_df.drop(['diag_1'], axis = 1)
+diabetes_df = diabetes_df.drop(['diag_2'], axis = 1)
+diabetes_df = diabetes_df.drop(['diag_3'], axis = 1)
+
+# Remove some "id" columns as they're randomized and serve no purpose to prediction.
+diabetes_df = diabetes_df.drop(['patient_nbr'], axis = 1)
+diabetes_df = diabetes_df.drop(['encounter_id'], axis = 1)
+
+# The "admission_type_id, discharge_disposition_id, admission_source_id" columns are all categorical. They are to be kept.
+
+
+# Check for missing values in the entire DataFrame
+missing_values = diabetes_df.isnull().sum()
+
+# Check for values containing "?"
+question_mark_values = (diabetes_df == "?").sum()
+
+# Print the missing values and "?" values for each column
+for column in diabetes_df.columns:
+    if missing_values[column] > 0 or question_mark_values[column] > 0:
+        print(f"Column: {column}")
+        print(f"Missing Values: {missing_values[column]}")
+        print(f"Question Mark Values: {question_mark_values[column]}")
+        print()
+
+# Race still has some missing values but they're minimal. Let's only drop the missing values.
+diabetes_df = diabetes_df[diabetes_df['race'] != "?"]
+
+
+# diabetes_df is now cleaned
+diabetes_clean = diabetes_df
+
+
+# Basic decriptive analysis for relevant categorical columns with bar graphs
+def plot_readmitted_vs_column(dataframe, column_name):
+    # Create a grouped bar plot for the specified column and "readmitted" values
+    plt.figure(figsize=(10, 6))
+
+    # Group the data by "readmitted" and the specified column, then count the occurrences
+    grouped_data = dataframe.groupby(['readmitted', column_name]).size().unstack()
+
+    # Calculate the percentage within each group (row)
+    percentages = grouped_data.div(grouped_data.sum(axis=1), axis=0) * 100
+
+    # Plot the grouped data as a stacked bar chart
+    percentages.plot(kind='bar', stacked=True)
+
+    # Customize the plot labels and legend
+    plt.title(f"{column_name} vs. Readmission (Percentage)")
+    plt.xlabel(column_name)
+    plt.ylabel("Percentage")
+    plt.xticks(rotation=0)
+
+    plt.show()
+
+# Commented graphs were found to not be relevant.
+#plot_readmitted_vs_column(diabetes_clean, 'age')
+#plot_readmitted_vs_column(diabetes_clean, 'discharge_disposition_id')
+plot_readmitted_vs_column(diabetes_clean, 'admission_type_id')
+#plot_readmitted_vs_column(diabetes_clean, 'admission_source_id')
+plot_readmitted_vs_column(diabetes_clean, 'change')
+#plot_readmitted_vs_column(diabetes_clean, 'diabetesMed')
+
+
+# Diagnostic Analysis: Measuring the readmittance rate behind harmful medications with pie charts
+
+# Medication name list for cleaner visualization
+medications = [
+    'metformin',
+    'repaglinide',
+    'nateglinide',
+    'chlorpropamide',
+    'glimepiride',
+    'acetohexamide',
+    'glipizide',
+    'glyburide',
+    'tolbutamide',
+    'pioglitazone',
+    'rosiglitazone',
+    'acarbose',
+    'miglitol',
+    'troglitazone',
+    'tolazamide',
+    'examide',
+    'citoglipton',
+    'insulin',
+    'glyburide-metformin',
+    'glipizide-metformin',
+    'glimepiride-pioglitazone',
+    'metformin-rosiglitazone',
+    'metformin-pioglitazone'
+]
+
+# Set a different Seaborn style and font scale
+sns.set(style="whitegrid", context="talk", font_scale=1.2)
+
+# Define the list of medications of interest
+medications_of_interest = ['metformin', 'glipizide', 'glyburide']
+
+# Create a function to generate a pie chart for a specific medication
+def create_pie_chart(dataframe, medication):
+    filtered_data = dataframe[(dataframe['readmitted'].isin(['<30', '>30', 'NO'])) &
+                              (dataframe[medication].isin(['Steady', 'Up']))]
+
+    readmission_counts = filtered_data['readmitted'].value_counts()
+
+    # Define explosion (0.1 for "<30" and ">30")
+    explode = (0.1, 0, 0)
+
+    plt.figure(figsize=(8, 8))
+    plt.pie(readmission_counts, labels=readmission_counts.index, autopct='%1.1f%%', startangle=140, explode=explode)
+    plt.title(f"Readmission Status for Patients on {medication} ('Steady' or 'Up')")
+    plt.show()
+
+# Create pie charts for each medication
+for medication in medications_of_interest:
+    create_pie_chart(diabetes_clean, medication)
+
+
+# Making connections between medications and age groups using a "Stacked" Bar Graph
+diabetes_clean2 = diabetes_clean[diabetes_clean['readmitted'] != 'NO']
+
+# Count the occurrences of age groups in each 'readmitted' category
+age_counts = diabetes_clean2.groupby(['age', 'readmitted']).size().reset_index(name='count')
+
+# Age Stratified Analysis with stacked bar graph
+plt.figure(figsize=(15, 6))
+sns.barplot(data=age_counts, x="age", y="count", hue="readmitted", palette='crest')
+plt.xlabel("Age")
+plt.ylabel("Count")
+plt.title("Age Stratified Analysis of Readmission")
+plt.ylim(0, 6000)  # Set the y-axis limit to 6000
+plt.show()
+
+
+import xgboost as xgb
+from xgboost import plot_importance
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+# Predict using XGBoost and F score to measure its performance
+
+# Define the columns that need to be scaled (numerical)
+numerical_cols = [
+    'time_in_hospital',
+    'num_lab_procedures',
+    'num_procedures',
+    'num_medications',
+    'number_outpatient',
+    'number_emergency',
+    'number_inpatient',
+    'number_diagnoses',
+    'age_num'  # Assuming 'age_num' is a numerical column
+]
+
+# Load the dataset
+data = diabetes_clean
+
+# Split the data into features (X) and target variable (y)
+X = data.drop("readmitted", axis=1)  
+y = data["readmitted"]
+
+# Encoding target variable into numerical format
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+
+# Identify categorical columns
+categorical_cols = X_train.select_dtypes(include=['object']).columns.tolist()
+
+# Define preprocessing steps
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numerical_cols),
+        ('cat', OneHotEncoder(drop='first'), categorical_cols)
+    ])
+
+# Define the model
+model = xgb.XGBClassifier()
+
+# Create and fit the pipeline
+from sklearn.pipeline import Pipeline
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', model)
+])
+
+pipeline.fit(X_train, y_train)
+
+# Plot feature importance
+plt.rcParams.update({'font.size': 8})
+plot_importance(model)
+plt.yticks(fontsize=8)
+plt.show()
+
+
+from numpy import loadtxt
+from xgboost import XGBClassifier
+from matplotlib import pyplot
+
+from numpy import genfromtxt
+
+
+print(model.feature_importances_)
+
+
+# Access feature names using .dtype.names
+feature_names = data.columns
+print(feature_names)
+
+# Create a dictionary of feature names and their importance scores
+feature_importance_dict = dict(zip(feature_names, model.feature_importances_))
+
+# Sort the dictionary by importance scores in descending order
+sorted_feature_importance = sorted(feature_importance_dict.items(), key=lambda x: x[1], reverse=True)
+
+# Extract the top features and their importance scores
+top_features = [item[0] for item in sorted_feature_importance][:10]  # Adjust the number as needed
+top_importance_scores = [item[1] for item in sorted_feature_importance][:10]
+
+# Plot the top features
+plt.figure(figsize=(12, 8))  # Adjust the figure size as needed
+plt.bar(top_features, top_importance_scores)
+plt.xticks(rotation=90)  # Rotate the x-axis labels for better readability
+plt.xlabel('Feature Names')
+plt.ylabel('Importance Scores')
+plt.title('Top Feature Importances')
+plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)  # Adjust the layout
+plt.show()
